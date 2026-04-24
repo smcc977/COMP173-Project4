@@ -10,6 +10,7 @@ gcc -pthread mmu.c -o mmu
 #include <unistd.h>
 #include <sys/stat.h>
 #include <stdbool.h>
+#include <stdint.h>
 
 /*
 TLB is array of struct of page number and frames
@@ -47,7 +48,8 @@ typedef struct {
 void init_mmu(MMU *mmu);
 int search_tlb(MMU *mmu, int page_number);
 int page_table_lookup(MMU *mmu, int page_number);
-
+int allocation (MMU *mmu, int page_number);
+int tlb_FIFO (MMU *mmu);
 
 void init_mmu(MMU *mmu) {
 	for (int i = 0; i < 16; i++) {
@@ -72,4 +74,17 @@ int search_tlb(MMU *mmu, int page_number){
 
 int page_table_lookup(MMU *mmu, int page_number) {
 	return mmu->page_table[page_number];
+}
+
+int allocation (MMU *mmu, int page_number) {
+	FILE *backing_bin = fopen("BACKING_STORE.bin", "r");
+	page aPage = mmu->main_memory[mmu->next_open_frame];
+	for (int i = 0; i < 256; i++) {
+		aPage.bytes[i] = fseek(backing_bin, (page_number*256) + i, SEEK_SET);
+	}
+	fclose("BACKING_STORE.bin");
+	mmu->page_table[page_number] = mmu->next_open_frame;
+	mmu->tlb_pages[tlb_FIFO(mmu)] = page_number;
+	mmu->tlb_frames[tlb_FIFO(mmu)] = mmu->next_open_frame;
+	mmu->next_open_frame = (mmu->next_open_frame + 1) % 256;
 }
