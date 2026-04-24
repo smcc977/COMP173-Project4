@@ -40,4 +40,14 @@ typedef struct {
 } MMU;
 
 
-void init_mmu(MMU *mmu)
+void init_tlb(MMU *mmu) {
+	for (int i = 0; i < 16; i++) {
+		mmu->tlb_pages[i] = -1;
+		mmu->tlb_frames[i] = -1;
+	}
+
+	mmu->tlb_index = 0;
+	mmu->tlb_index = 0;
+}
+
+int search_tlb
