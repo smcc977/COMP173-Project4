@@ -40,4 +40,11 @@ typedef struct {
 } MMU;
 
 
-void init_mmu(MMU *mmu)
+void init_mmu(MMU *mmu);
+int page_table_lookup(MMU *mmu, int page_number);
+
+
+
+int page_table_lookup(MMU *mmu, int page_number) {
+	return mmu->page_table[page_number];
+}
