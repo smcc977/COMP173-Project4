@@ -25,12 +25,16 @@ Return value
 */
 
 typedef struct {
+	uint8_t bytes[256];
+} page;
+
+typedef struct {
 	int page_table[256];
 
 	int tlb_pages[16];
 	int tlb_frames[16];
 
-	int main_memory[256];
+	page main_memory[256];
 
 	int tlb_index;
 	int next_open_frame;
