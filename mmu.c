@@ -10,6 +10,7 @@ gcc -pthread mmu.c -o mmu
 #include <unistd.h>
 #include <sys/stat.h>
 #include <stdbool.h>
+#include <stdint.h>
 
 /*
 TLB is array of struct of page number and frames
@@ -45,9 +46,18 @@ typedef struct {
 
 
 void init_mmu(MMU *mmu);
+void update_tlb(MMU *mmu, int page_number, int frame_number);
 int search_tlb(MMU *mmu, int page_number);
 int page_table_lookup(MMU *mmu, int page_number);
+int allocate_frame(MMU *mmu, int page_number);
 
+
+void update_tlb(MMU *mmu, int page_number, int frame_number) {
+	mmu->tlb_pages[mmu->tlb_index] = page_number;
+	mmu->tlb_frames[mmu->tlb_index] = frame_number;
+
+	mmu->tlb_index = (mmu->tlb_index + 1) % 16;
+}
 
 void init_mmu(MMU *mmu) {
 	for (int i = 0; i < 16; i++) {
@@ -72,4 +82,20 @@ int search_tlb(MMU *mmu, int page_number){
 
 int page_table_lookup(MMU *mmu, int page_number) {
 	return mmu->page_table[page_number];
+}
+
+int main(void) {
+    MMU mmu;
+    init_mmu(&mmu);
+
+    mmu.tlb_pages[0] = 66;
+    mmu.tlb_frames[0] = 9;
+
+    int frame_hit = search_tlb(&mmu, 66);
+    printf("Hit test: frame=%d, tlb_hits=%d\n", frame_hit, mmu.tlb_hits);
+
+    int frame_miss = search_tlb(&mmu, 77);
+    printf("Miss test: frame=%d, tlb_hits=%d\n", frame_miss, mmu.tlb_hits);
+
+    return 0;
 }
