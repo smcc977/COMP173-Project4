@@ -46,13 +46,13 @@ typedef struct {
 
 
 void init_mmu(MMU *mmu);
-void update_tlb(MMU *mmu, int page_number, int frame_number);
+void tlb_FIFO(MMU *mmu, int page_number, int frame_number);
 int search_tlb(MMU *mmu, int page_number);
 int page_table_lookup(MMU *mmu, int page_number);
-int allocate_frame(MMU *mmu, int page_number);
+int allocation(MMU *mmu, int page_number);
 
 
-void update_tlb(MMU *mmu, int page_number, int frame_number) {
+void tlb_FIFO(MMU *mmu, int page_number, int frame_number) {
 	mmu->tlb_pages[mmu->tlb_index] = page_number;
 	mmu->tlb_frames[mmu->tlb_index] = frame_number;
 
@@ -98,4 +98,17 @@ int main(void) {
     printf("Miss test: frame=%d, tlb_hits=%d\n", frame_miss, mmu.tlb_hits);
 
     return 0;
+}
+
+int allocation(MMU *mmu, int page_number) {
+	FILE *backing_bin = fopen("BACKING_STORE.bin", "r");
+	page aPage = mmu->main_memory[mmu->next_open_frame];
+	for (int i = 0; i < 256; i++) {
+		aPage.bytes[i] = fseek(backing_bin, (page_number*256) + i, SEEK_SET);
+	}
+	fclose("BACKING_STORE.bin");
+	mmu->page_table[page_number] = mmu->next_open_frame;
+	mmu->tlb_pages[tlb_FIFO(mmu)] = page_number;
+	mmu->tlb_frames[tlb_FIFO(mmu)] = mmu->next_open_frame;
+	mmu->next_open_frame = (mmu->next_open_frame + 1) % 256;
 }
