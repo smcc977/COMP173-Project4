@@ -77,14 +77,16 @@ int page_table_lookup(MMU *mmu, int page_number) {
 }
 
 int allocation (MMU *mmu, int page_number) {
-	FILE *backing_bin = fopen("BACKING_STORE.bin", "r");
 	page aPage = mmu->main_memory[mmu->next_open_frame];
+	int evicted_tlb = tlb_FIFO(mmu);
+	FILE *backing_bin = fopen("BACKING_STORE.bin", "r");
+	fseek(backing_bin, (page_number*256), SEEK_SET);
 	for (int i = 0; i < 256; i++) {
-		aPage.bytes[i] = fseek(backing_bin, (page_number*256) + i, SEEK_SET);
+		aPage.bytes[i] = fgetc(backing_bin);
 	}
 	fclose("BACKING_STORE.bin");
 	mmu->page_table[page_number] = mmu->next_open_frame;
-	mmu->tlb_pages[tlb_FIFO(mmu)] = page_number;
-	mmu->tlb_frames[tlb_FIFO(mmu)] = mmu->next_open_frame;
+	mmu->tlb_pages[evicted_tlb] = page_number;
+	mmu->tlb_frames[evicted_tlb] = mmu->next_open_frame;
 	mmu->next_open_frame = (mmu->next_open_frame + 1) % 256;
 }
