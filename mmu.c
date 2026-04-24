@@ -24,6 +24,20 @@ If fault allocate new frame in memory
 Return value
 */
 
-int main(int argc, char *argv[]){    
-	return 0;
-}
+typedef struct {
+	int page_table[256];
+
+	int tlb_pages[16];
+	int tlb_frames[16];
+
+	int main_memory[256];
+
+	int tlb_index;
+	int next_open_frame;
+
+	int tlb_hits;
+	int page_faults;
+} MMU;
+
+
+void init_mmu(MMU *mmu)
