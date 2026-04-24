@@ -40,14 +40,32 @@ typedef struct {
 } MMU;
 
 
-void init_tlb(MMU *mmu) {
+void init_mmu(MMU *mmu);
+int search_tlb(MMU *mmu, int page_number);
+int page_table_lookup(MMU *mmu, int page_number);
+
+
+void init_mmu(MMU *mmu) {
 	for (int i = 0; i < 16; i++) {
 		mmu->tlb_pages[i] = -1;
 		mmu->tlb_frames[i] = -1;
 	}
 
 	mmu->tlb_index = 0;
-	mmu->tlb_index = 0;
+	mmu->tlb_hits = 0;
 }
 
-int search_tlb
+int search_tlb(MMU *mmu, int page_number){
+	for (int i = 0; i < 16; i++) {
+		if (mmu->tlb_pages[i] == page_number) {
+			mmu->tlb_hits++;
+			return mmu-> tlb_frames[i];
+		}
+	}
+	return -1;
+}
+
+
+int page_table_lookup(MMU *mmu, int page_number) {
+	return mmu->page_table[page_number];
+}
