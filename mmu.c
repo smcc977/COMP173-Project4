@@ -64,7 +64,6 @@ void init_mmu(MMU *mmu) {
 		mmu->tlb_pages[i] = -1;
 		mmu->tlb_frames[i] = -1;
 	}
-
 	mmu->tlb_index = 0;
 	mmu->tlb_hits = 0;
 }
@@ -84,31 +83,34 @@ int page_table_lookup(MMU *mmu, int page_number) {
 	return mmu->page_table[page_number];
 }
 
-int main(void) {
-    MMU mmu;
-    init_mmu(&mmu);
-
-    mmu.tlb_pages[0] = 66;
-    mmu.tlb_frames[0] = 9;
-
-    int frame_hit = search_tlb(&mmu, 66);
-    printf("Hit test: frame=%d, tlb_hits=%d\n", frame_hit, mmu.tlb_hits);
-
-    int frame_miss = search_tlb(&mmu, 77);
-    printf("Miss test: frame=%d, tlb_hits=%d\n", frame_miss, mmu.tlb_hits);
-
-    return 0;
+int allocation(MMU *mmu, int page_number) {
+	FILE *backing_bin = fopen("BACKING_STORE.bin", "rb");
+	if (!backing_bin) {
+		perror("BACKING_STORE.bin");
+		return -1;
+	}
+	fseek(backing_bin, page_number * 256, SEEK_SET);
+	page *new_page = &mmu->main_memory[mmu->next_open_frame];
+	fread(new_page->bytes, sizeof(uint8_t), 256, backing_bin);
+	fclose(backing_bin);
+	mmu->page_table[page_number] = mmu->next_open_frame;
+	tlb_FIFO(mmu, page_number, mmu->next_open_frame);	
+	mmu->next_open_frame = (mmu->next_open_frame + 1) % 256;
+	mmu->page_faults++;
+	return mmu->next_open_frame - 1;
 }
 
-int allocation(MMU *mmu, int page_number) {
-	FILE *backing_bin = fopen("BACKING_STORE.bin", "r");
-	page aPage = mmu->main_memory[mmu->next_open_frame];
-	for (int i = 0; i < 256; i++) {
-		aPage.bytes[i] = fseek(backing_bin, (page_number*256) + i, SEEK_SET);
-	}
-	fclose("BACKING_STORE.bin");
-	mmu->page_table[page_number] = mmu->next_open_frame;
-	mmu->tlb_pages[tlb_FIFO(mmu)] = page_number;
-	mmu->tlb_frames[tlb_FIFO(mmu)] = mmu->next_open_frame;
-	mmu->next_open_frame = (mmu->next_open_frame + 1) % 256;
+int main(void) {
+	MMU mmu;
+	init_mmu(&mmu);
+	
+	/*
+	mmu.tlb_pages[0] = 66;
+	mmu.tlb_frames[0] = 9;
+	int frame_hit = search_tlb(&mmu, 66);
+	printf("Hit test: frame=%d, tlb_hits=%d\n", frame_hit, mmu.tlb_hits);
+	int frame_miss = search_tlb(&mmu, 77);
+	printf("Miss test: frame=%d, tlb_hits=%d\n", frame_miss, mmu.tlb_hits);
+	*/
+	return 0;
 }
