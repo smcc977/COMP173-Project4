@@ -1,6 +1,6 @@
 /*
 Complie with:
-gcc -pthread mmu.c -o mmu
+gcc mmu.c -o mmu
 */
 
 #include <fcntl.h>
@@ -11,19 +11,6 @@ gcc -pthread mmu.c -o mmu
 #include <sys/stat.h>
 #include <stdbool.h>
 #include <stdint.h>
-
-/*
-TLB is array of struct of page number and frames
-Page table is array of frame number (index is page number)
-Main Memory is array of value (index is frame #)
-
-Program Flow:
-Read address
-Search TLB
-If fault search page table
-If fault allocate new frame in memory
-Return value
-*/
 
 typedef struct {
 	uint8_t bytes[256];
