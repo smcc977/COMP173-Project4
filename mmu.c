@@ -50,6 +50,10 @@ void tlb_FIFO(MMU *mmu, int page_number, int frame_number);
 int search_tlb(MMU *mmu, int page_number);
 int page_table_lookup(MMU *mmu, int page_number);
 int allocation(MMU *mmu, int page_number);
+void init_page_table(MMU *mmu);
+int resolve_frame(MMU *mmu, int page_number);
+int translate_address(MMU *mmu, int logical_address, int *physical_address, int *value);
+void print_summary(MMU *mmu, int translated_count);
 
 
 void tlb_FIFO(MMU *mmu, int page_number, int frame_number) {
@@ -66,6 +70,12 @@ void init_mmu(MMU *mmu) {
 	}
 	mmu->tlb_index = 0;
 	mmu->tlb_hits = 0;
+}
+
+void init_page_table(MMU *mmu) {
+	for (int i = 0; i < 256; i++) {
+		mmu->page_table[i] = -1;
+	}
 }
 
 int search_tlb(MMU *mmu, int page_number){
@@ -89,28 +99,90 @@ int allocation(MMU *mmu, int page_number) {
 		perror("BACKING_STORE.bin");
 		return -1;
 	}
+	int allocated_frame = mmu->next_open_frame;
 	fseek(backing_bin, page_number * 256, SEEK_SET);
-	page *new_page = &mmu->main_memory[mmu->next_open_frame];
+	page *new_page = &mmu->main_memory[allocated_frame];
 	fread(new_page->bytes, sizeof(uint8_t), 256, backing_bin);
 	fclose(backing_bin);
-	mmu->page_table[page_number] = mmu->next_open_frame;
-	tlb_FIFO(mmu, page_number, mmu->next_open_frame);	
+	mmu->page_table[page_number] = allocated_frame;
+	tlb_FIFO(mmu, page_number, allocated_frame);
 	mmu->next_open_frame = (mmu->next_open_frame + 1) % 256;
 	mmu->page_faults++;
-	return mmu->next_open_frame - 1;
+	return allocated_frame;
+}
+
+int resolve_frame(MMU *mmu, int page_number) {
+	int frame_number = search_tlb(mmu, page_number);
+	if (frame_number == -1) {
+		frame_number = page_table_lookup(mmu, page_number);
+		if (frame_number == -1) {
+			frame_number = allocation(mmu, page_number);
+		} else {
+			tlb_FIFO(mmu, page_number, frame_number);
+		}
+	}
+
+	return frame_number;
+}
+
+int translate_address(MMU *mmu, int logical_address, int *physical_address, int *value) {
+	int page_number = (logical_address >> 8) & 0xFF;
+	int offset = logical_address & 0xFF;
+	int frame_number = resolve_frame(mmu, page_number);
+	if (frame_number == -1) {
+		return -1;
+	}
+	*physical_address = (frame_number << 8) | offset;
+	*value = (int8_t)mmu->main_memory[frame_number].bytes[offset];
+
+	return 0;
+}
+
+void print_summary(MMU *mmu, int translated_count) {
+	if (translated_count > 0) {
+		double page_fault_rate = (double)mmu->page_faults / translated_count;
+		double tlb_hit_rate = (double)mmu->tlb_hits / translated_count;
+
+		printf("\nNumber of translated addresses = %d\n", translated_count);
+		printf("Page Faults = %d\n", mmu->page_faults);
+		printf("Page Fault Rate = %.3f\n", page_fault_rate);
+		printf("TLB Hits = %d\n", mmu->tlb_hits);
+		printf("TLB Hit Rate = %.3f\n", tlb_hit_rate);
+	}
 }
 
 int main(void) {
 	MMU mmu;
 	init_mmu(&mmu);
-	
-	/*
-	mmu.tlb_pages[0] = 66;
-	mmu.tlb_frames[0] = 9;
-	int frame_hit = search_tlb(&mmu, 66);
-	printf("Hit test: frame=%d, tlb_hits=%d\n", frame_hit, mmu.tlb_hits);
-	int frame_miss = search_tlb(&mmu, 77);
-	printf("Miss test: frame=%d, tlb_hits=%d\n", frame_miss, mmu.tlb_hits);
-	*/
+	mmu.next_open_frame = 0;
+	mmu.page_faults = 0;
+	init_page_table(&mmu);
+
+	FILE *addresses = fopen("addresses.txt", "r");
+	if (!addresses) {
+		perror("addresses.txt");
+		return 1;
+	}
+
+	int logical_address;
+	int translated_count = 0;
+
+	while (fscanf(addresses, "%d", &logical_address) == 1) {
+		int physical_address;
+		int value;
+
+		if (translate_address(&mmu, logical_address, &physical_address, &value) == -1) {
+			fclose(addresses);
+			return 1;
+		}
+
+		printf("Logical address: %d Physical address: %d Value: %d\n",
+			logical_address, physical_address, value);
+		translated_count++;
+	}
+
+	fclose(addresses);
+	print_summary(&mmu, translated_count);
+
 	return 0;
 }
