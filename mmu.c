@@ -53,7 +53,7 @@ int allocation(MMU *mmu, int page_number);
 void init_page_table(MMU *mmu);
 int resolve_frame(MMU *mmu, int page_number);
 int translate_address(MMU *mmu, int logical_address, int *physical_address, int *value);
-void print_summary(MMU *mmu, int translated_count);
+int print_address_trace(MMU *mmu, int logical_address);
 
 
 void tlb_FIFO(MMU *mmu, int page_number, int frame_number) {
@@ -138,17 +138,46 @@ int translate_address(MMU *mmu, int logical_address, int *physical_address, int 
 	return 0;
 }
 
-void print_summary(MMU *mmu, int translated_count) {
-	if (translated_count > 0) {
-		double page_fault_rate = (double)mmu->page_faults / translated_count;
-		double tlb_hit_rate = (double)mmu->tlb_hits / translated_count;
+int print_address_trace(MMU *mmu, int logical_address) {
+	int page_number = (logical_address >> 8) & 0xFF;
+	int offset = logical_address & 0xFF;
+	int frame_number;
+	int value;
 
-		printf("\nNumber of translated addresses = %d\n", translated_count);
-		printf("Page Faults = %d\n", mmu->page_faults);
-		printf("Page Fault Rate = %.3f\n", page_fault_rate);
-		printf("TLB Hits = %d\n", mmu->tlb_hits);
-		printf("TLB Hit Rate = %.3f\n", tlb_hit_rate);
+	printf("Reading logical address: %d\n", logical_address);
+	printf("Page number: %d\n", page_number);
+	printf("Offset: %d\n", offset);
+
+	frame_number = search_tlb(mmu, page_number);
+	if (frame_number != -1) {
+		printf("TLB hit!\n");
+	} else {
+		printf("TLB miss!\n");
+		frame_number = page_table_lookup(mmu, page_number);
+
+		if (frame_number == -1) {
+			printf("Page fault!\n");
+			printf("Found free frame number: %d\n", mmu->next_open_frame);
+
+			frame_number = allocation(mmu, page_number);
+			if (frame_number == -1) {
+				return -1;
+			}
+
+			printf("Page loaded from disk to memory.\n");
+			printf("Page table updated at index %d with frame number %d.\n", page_number, frame_number);
+			printf("TLB updated with page number %d and frame number %d.\n", page_number, frame_number);
+		} else {
+			tlb_FIFO(mmu, page_number, frame_number);
+			printf("Page table hit!\n");
+			printf("TLB updated with page number %d and frame number %d.\n", page_number, frame_number);
+		}
 	}
+
+	value = (int8_t)mmu->main_memory[frame_number].bytes[offset];
+	printf("Value in the memory: %d\n\n", value);
+
+	return 0;
 }
 
 int main(void) {
@@ -168,21 +197,16 @@ int main(void) {
 	int translated_count = 0;
 
 	while (fscanf(addresses, "%d", &logical_address) == 1) {
-		int physical_address;
-		int value;
-
-		if (translate_address(&mmu, logical_address, &physical_address, &value) == -1) {
+		if (print_address_trace(&mmu, logical_address) == -1) {
 			fclose(addresses);
 			return 1;
 		}
-
-		printf("Logical address: %d Physical address: %d Value: %d\n",
-			logical_address, physical_address, value);
 		translated_count++;
 	}
 
 	fclose(addresses);
-	print_summary(&mmu, translated_count);
+	printf("Aggregate page faults = %d\n", mmu.page_faults);
+	printf("Aggregate TLB hits = %d\n", mmu.tlb_hits);
 
 	return 0;
 }
