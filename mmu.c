@@ -117,8 +117,6 @@ int resolve_frame(MMU *mmu, int page_number) {
 		frame_number = page_table_lookup(mmu, page_number);
 		if (frame_number == -1) {
 			frame_number = allocation(mmu, page_number);
-		} else {
-			tlb_FIFO(mmu, page_number, frame_number);
 		}
 	}
 
@@ -168,7 +166,6 @@ int print_address_trace(MMU *mmu, int logical_address) {
 			printf("\tPage table updated at index %d with frame number %d.\n", page_number, frame_number);
 			printf("\tTLB updated with page number %d and frame number %d.\n", page_number, frame_number);
 		} else {
-			tlb_FIFO(mmu, page_number, frame_number);
 			printf("\tPage table hit!\n");
 			printf("\tTLB updated with page number %d and frame number %d.\n", page_number, frame_number);
 		}
