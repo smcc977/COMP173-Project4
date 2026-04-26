@@ -145,37 +145,37 @@ int print_address_trace(MMU *mmu, int logical_address) {
 	int value;
 
 	printf("Reading logical address: %d\n", logical_address);
-	printf("Page number: %d\n", page_number);
-	printf("Offset: %d\n", offset);
+	printf("\tPage number: %d\n", page_number);
+	printf("\tOffset: %d\n", offset);
 
 	frame_number = search_tlb(mmu, page_number);
 	if (frame_number != -1) {
-		printf("TLB hit!\n");
+		printf("\tTLB hit!\n");
 	} else {
-		printf("TLB miss!\n");
+		printf("\tTLB miss!\n");
 		frame_number = page_table_lookup(mmu, page_number);
 
 		if (frame_number == -1) {
-			printf("Page fault!\n");
-			printf("Found free frame number: %d\n", mmu->next_open_frame);
+			printf("\tPage fault!\n");
+			printf("\tFound free frame number: %d\n", mmu->next_open_frame);
 
 			frame_number = allocation(mmu, page_number);
 			if (frame_number == -1) {
 				return -1;
 			}
 
-			printf("Page loaded from disk to memory.\n");
-			printf("Page table updated at index %d with frame number %d.\n", page_number, frame_number);
-			printf("TLB updated with page number %d and frame number %d.\n", page_number, frame_number);
+			printf("\tPage loaded from disk to memory.\n");
+			printf("\tPage table updated at index %d with frame number %d.\n", page_number, frame_number);
+			printf("\tTLB updated with page number %d and frame number %d.\n", page_number, frame_number);
 		} else {
 			tlb_FIFO(mmu, page_number, frame_number);
-			printf("Page table hit!\n");
-			printf("TLB updated with page number %d and frame number %d.\n", page_number, frame_number);
+			printf("\tPage table hit!\n");
+			printf("\tTLB updated with page number %d and frame number %d.\n", page_number, frame_number);
 		}
 	}
 
 	value = (int8_t)mmu->main_memory[frame_number].bytes[offset];
-	printf("Value in the memory: %d\n\n", value);
+	printf("\tValue in the memory: %d\n", value);
 
 	return 0;
 }
@@ -205,7 +205,7 @@ int main(void) {
 	}
 
 	fclose(addresses);
-	printf("Aggregate page faults = %d\n", mmu.page_faults);
+	printf("\n\nAggregate page faults = %d\n", mmu.page_faults);
 	printf("Aggregate TLB hits = %d\n", mmu.tlb_hits);
 
 	return 0;
