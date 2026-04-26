@@ -49,11 +49,11 @@ void init_mmu(MMU *mmu);
 void tlb_FIFO(MMU *mmu, int page_number, int frame_number);
 int search_tlb(MMU *mmu, int page_number);
 int page_table_lookup(MMU *mmu, int page_number);
-int allocation(MMU *mmu, int page_number);
+int allocation(MMU *mmu, int page_number, const char *backing_store_path);
 void init_page_table(MMU *mmu);
-int resolve_frame(MMU *mmu, int page_number);
-int translate_address(MMU *mmu, int logical_address, int *physical_address, int *value);
-int print_address_trace(MMU *mmu, int logical_address);
+int resolve_frame(MMU *mmu, int page_number, const char *backing_store_path);
+int translate_address(MMU *mmu, int logical_address, int *physical_address, int *value, const char *backing_store_path);
+int print_address_trace(MMU *mmu, int logical_address, const char *backing_store_path);
 
 
 void tlb_FIFO(MMU *mmu, int page_number, int frame_number) {
@@ -93,10 +93,10 @@ int page_table_lookup(MMU *mmu, int page_number) {
 	return mmu->page_table[page_number];
 }
 
-int allocation(MMU *mmu, int page_number) {
-	FILE *backing_bin = fopen("BACKING_STORE.bin", "rb");
+int allocation(MMU *mmu, int page_number, const char *backing_store_path) {
+	FILE *backing_bin = fopen(backing_store_path, "rb");
 	if (!backing_bin) {
-		perror("BACKING_STORE.bin");
+		perror(backing_store_path);
 		return -1;
 	}
 	int allocated_frame = mmu->next_open_frame;
@@ -111,22 +111,22 @@ int allocation(MMU *mmu, int page_number) {
 	return allocated_frame;
 }
 
-int resolve_frame(MMU *mmu, int page_number) {
+int resolve_frame(MMU *mmu, int page_number, const char *backing_store_path) {
 	int frame_number = search_tlb(mmu, page_number);
 	if (frame_number == -1) {
 		frame_number = page_table_lookup(mmu, page_number);
 		if (frame_number == -1) {
-			frame_number = allocation(mmu, page_number);
+			frame_number = allocation(mmu, page_number, backing_store_path);
 		}
 	}
 
 	return frame_number;
 }
 
-int translate_address(MMU *mmu, int logical_address, int *physical_address, int *value) {
+int translate_address(MMU *mmu, int logical_address, int *physical_address, int *value, const char *backing_store_path) {
 	int page_number = (logical_address >> 8) & 0xFF;
 	int offset = logical_address & 0xFF;
-	int frame_number = resolve_frame(mmu, page_number);
+	int frame_number = resolve_frame(mmu, page_number, backing_store_path);
 	if (frame_number == -1) {
 		return -1;
 	}
@@ -136,7 +136,7 @@ int translate_address(MMU *mmu, int logical_address, int *physical_address, int 
 	return 0;
 }
 
-int print_address_trace(MMU *mmu, int logical_address) {
+int print_address_trace(MMU *mmu, int logical_address, const char *backing_store_path) {
 	int page_number = (logical_address >> 8) & 0xFF;
 	int offset = logical_address & 0xFF;
 	int frame_number;
@@ -157,7 +157,7 @@ int print_address_trace(MMU *mmu, int logical_address) {
 			printf("\tPage fault!\n");
 			printf("\tFound free frame number: %d\n", mmu->next_open_frame);
 
-			frame_number = allocation(mmu, page_number);
+			frame_number = allocation(mmu, page_number, backing_store_path);
 			if (frame_number == -1) {
 				return -1;
 			}
@@ -177,16 +177,19 @@ int print_address_trace(MMU *mmu, int logical_address) {
 	return 0;
 }
 
-int main(void) {
+int main(int argc, char *argv[]) {
+	const char *backing_store_path = argv[1];
+	const char *addresses_path = argv[2];
+
 	MMU mmu;
 	init_mmu(&mmu);
 	mmu.next_open_frame = 0;
 	mmu.page_faults = 0;
 	init_page_table(&mmu);
 
-	FILE *addresses = fopen("addresses.txt", "r");
+	FILE *addresses = fopen(addresses_path, "r");
 	if (!addresses) {
-		perror("addresses.txt");
+		perror(addresses_path);
 		return 1;
 	}
 
@@ -194,7 +197,7 @@ int main(void) {
 	int translated_count = 0;
 
 	while (fscanf(addresses, "%d", &logical_address) == 1) {
-		if (print_address_trace(&mmu, logical_address) == -1) {
+		if (print_address_trace(&mmu, logical_address, backing_store_path) == -1) {
 			fclose(addresses);
 			return 1;
 		}
