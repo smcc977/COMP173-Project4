@@ -117,6 +117,8 @@ int resolve_frame(MMU *mmu, int page_number) {
 		frame_number = page_table_lookup(mmu, page_number);
 		if (frame_number == -1) {
 			frame_number = allocation(mmu, page_number);
+		} else {
+			tlb_FIFO(mmu, page_number, frame_number);
 		}
 	}
 
