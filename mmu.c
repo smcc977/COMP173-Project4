@@ -51,6 +51,8 @@ int search_tlb(MMU *mmu, int page_number);
 int page_table_lookup(MMU *mmu, int page_number);
 int allocation(MMU *mmu, int page_number, const char *backing_store_path);
 void init_page_table(MMU *mmu);
+int resolve_frame(MMU *mmu, int page_number, const char *backing_store_path);
+int translate_address(MMU *mmu, int logical_address, int *physical_address, int *value, const char *backing_store_path);
 int print_address_trace(MMU *mmu, int logical_address, const char *backing_store_path);
 
 
@@ -167,12 +169,14 @@ int main(int argc, char *argv[]) {
 	}
 
 	int logical_address;
+	int translated_count = 0;
 
 	while (fscanf(addresses, "%d", &logical_address) == 1) {
 		if (print_address_trace(&mmu, logical_address, backing_store_path) == -1) {
 			fclose(addresses);
 			return 1;
 		}
+		translated_count++;
 	}
 
 	fclose(addresses);
